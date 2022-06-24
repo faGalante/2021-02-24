@@ -6,7 +6,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
 import it.polito.tdp.PremierLeague.model.Action;
+import it.polito.tdp.PremierLeague.model.Adiacenza;
 import it.polito.tdp.PremierLeague.model.Match;
 import it.polito.tdp.PremierLeague.model.Player;
 import it.polito.tdp.PremierLeague.model.Team;
@@ -111,4 +114,92 @@ public class PremierLeagueDAO {
 		}
 	}
 	
+	public List<Player> listAllPlayersByMatch(Match m, Map<Integer, Player>idMap){
+		String sql = "SELECT DISTINCT a1.PlayerID "
+				+ "FROM actions a1 "
+				+ "WHERE a1.MatchID = ? ";
+		List<Player> result = new ArrayList<Player>();
+		Connection conn = DBConnect.getConnection();
+
+		try {
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, m.getMatchID());
+			ResultSet res = st.executeQuery();
+			while (res.next()) {
+
+				Player player = idMap.get(res.getInt("a1.PlayerID")) ;
+				result.add(player);
+			}
+			conn.close();
+			return result;
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	public Double getEfficienzaByPlayerMatch (Player giocatore, Match partita){
+		String sql = "SELECT (a1.TotalSuccessfulPassesAll + a1.Assists) / a1.TimePlayed AS efficienza "
+				+ "FROM actions a1 "
+				+ "WHERE a1.PlayerID = ? AND a1.MatchID = ? ";
+//		List<Action> result = new ArrayList<Action>();
+		Double efficienza = null ;
+		Connection conn = DBConnect.getConnection();
+		
+		try {
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, giocatore.getPlayerID());
+			st.setInt(2, partita.getMatchID());
+			ResultSet res = st.executeQuery();
+
+			if(res.first()) { 
+				efficienza = res.getDouble("efficienza") ;
+//				result.add(action);
+			}
+			conn.close();
+			return efficienza ;
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	public List<Adiacenza> listAllAdiacenze (Match partita, Map<Integer, Player> idMap){
+		String sql = "SELECT a1.PlayerID, ((a1.TotalSuccessfulPassesAll + a1.Assists) / a1.TimePlayed) AS e1, "
+				+ "a2.PlayerID, ((a2.TotalSuccessfulPassesAll + a2.Assists) / a2.TimePlayed) AS e2 "
+				+ "FROM actions a1, actions a2 "
+				+ "WHERE a1.MatchID = ? "
+				+ "AND a1.TeamID != a2.TeamID AND a1.MatchID = a2.MatchID "
+				+ "GROUP BY a1.PlayerID, a2.PlayerID ";
+		List<Adiacenza> result = new ArrayList<Adiacenza>();
+		
+		Connection conn = DBConnect.getConnection();
+		
+		try {
+			PreparedStatement st = conn.prepareStatement(sql);
+//			st.setInt(1, giocatore.getPlayerID());
+			st.setInt(1, partita.getMatchID());
+			ResultSet res = st.executeQuery();
+
+			while(res.next()) {
+				Player player1 = idMap.get(res.getInt("a1.PlayerID")) ;
+				Player player2 = idMap.get(res.getInt("a2.PlayerID")) ;
+				
+				Double e1 = res.getDouble("e1") ;
+				Double e2 = res.getDouble("e2") ;
+				
+				Adiacenza a = new Adiacenza(player1, e1, player2, e2) ;
+				
+				result.add(a);
+			}
+			conn.close();
+			return result ;
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
 }
